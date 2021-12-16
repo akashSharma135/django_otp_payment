@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CustomUser
+from .models import CustomUser, Otp
 from django.contrib.auth.hashers import make_password
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -23,3 +23,14 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         instance.__dict__.update(validated_data)
         instance.save()
         return instance
+
+
+class UserLoginSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = '__all__'
+
+class OtpSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Otp
+        fields = '__all__'

@@ -9,6 +9,7 @@ from rest_framework.authtoken.models import Token
 from django.conf import settings
 from rest_framework import permissions
 from django.contrib.auth import authenticate
+from django.contrib.auth.hashers import make_password
 
 
 def random_with_N_digits():
@@ -136,4 +137,71 @@ class UserAuth(APIView):
             return Response(data, status=status.HTTP_401_UNAUTHORIZED)
 
 
+class ForgotPassword(APIView):           
+    def post(self, request):
+        email = request.data.get("email")
+
+        if email is not None:
+            isemail = CustomUser.objects.filter(email=email)
+
+            if not isemail:
+                return Response({"msg": "Email does not exists!"}, status=status.HTTP_200_OK)
+
+            try:
+                subject = "Please Verify your Email"
+                otp = random_with_N_digits()
+                email_message = (
+                    "Hi, <br><br> Please Verify your Email by below Otp: <br><br>"
+                    + str(otp)
+                )
+                send_mail(
+                    subject,
+                    email_message,
+                    getattr(settings, "EMAIL_HOST_USER"),
+                    [email],
+                    fail_silently=False,
+                )
+                user_check = Otp.objects.filter(email=email)
+                if user_check:
+                    user_check.update(code=otp)
+                else:
+                    Otp.objects.create(email=email, code=otp)
+
+                return Response(status=status.HTTP_200_OK)
+
+            except BadHeaderError:
+                return Response(status=status.HTTP_400_BAD_REQUEST)
+            
+class VerifyOtp(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        code = request.data.get("code")
+
+        try:
+            otp_check = Otp.objects.get(email=email)
+        except Exception:
+            data = {"error": True, "message": "User Otp Doesn't exists"}
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
+        if str(otp_check.code) == str(code):
+            is_verified = CustomUser.objects.filter(email=email).update(verified=True)
+
+            data = {"error": False, "message": "Otp successfully verified"}
+            return Response(data, status=status.HTTP_200_OK)
+
+class NewPassword(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        new_password = request.data.get("new_password")
+        confirm_password = request.data.get("confirm_password")
+
+        if new_password != confirm_password:
+            return Response({"error": "New password and confirm password must match."}, status=status.HTTP_200_OK)
+
+        user = CustomUser.objects.get(email=email)
+
+        user.password = make_password(new_password)
+
+        user.save()
+
+        return Response({"msg": "Password has been changed!"}, status=status.HTTP_200_OK)
 
